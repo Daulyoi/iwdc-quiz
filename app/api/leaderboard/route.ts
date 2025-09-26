@@ -60,32 +60,77 @@ export async function POST(request: Request) {
       );
     }
 
-    // Save the submission to the database
-    const newSubmission = await prisma.submissions.create({
-      data: {
-        name: name.trim(),
-        score
-      }
+    const trimmedName = name.trim();
+    
+    // Check if user already exists
+    const existingUser = await prisma.submissions.findFirst({
+      where: { name: trimmedName },
+      orderBy: { score: 'desc' }
     });
 
-    if (newSubmission) {
-      console.log('New submission saved:', newSubmission);
+    let submission;
+    let isNewHighScore = false;
+    let previousBestScore = 0;
+
+    if (existingUser) {
+      previousBestScore = existingUser.score;
+      
+      if (score > existingUser.score) {
+        // Update with new high score
+        submission = await prisma.submissions.update({
+          where: { id: existingUser.id },
+          data: { 
+            score,
+            timestamp: new Date()
+          }
+        });
+        isNewHighScore = true;
+        console.log(`Updated high score for ${trimmedName}: ${previousBestScore} -> ${score}`);
+      } else {
+        // Keep existing record, just return current state
+        submission = existingUser;
+        console.log(`Score ${score} not higher than existing best ${existingUser.score} for ${trimmedName}`);
+      }
+    } else {
+      // Create new user submission
+      submission = await prisma.submissions.create({
+        data: {
+          name: trimmedName,
+          score
+        }
+      });
+      isNewHighScore = true;
+      console.log('New user submission created:', submission);
     }
 
     // Get the updated leaderboard with ranks
     const rankedLeaderboard = await getLeaderboardWithRanks();
     
-    // Find the rank of the newly added entry
+    // Find the rank of the user
     const userRank = rankedLeaderboard.find(entry => 
-      entry.name === newSubmission.name && 
-      Math.abs(new Date(entry.timestamp).getTime() - newSubmission.timestamp.getTime()) < 1000
+      entry.name === submission.name
     )?.rank;
+
+    // Create appropriate message
+    let message;
+    if (existingUser) {
+      if (isNewHighScore) {
+        message = `New high score! Previous best: ${previousBestScore}. You ranked #${userRank}!`;
+      } else {
+        message = `Score recorded! Your best score remains ${existingUser.score}. Current rank: #${userRank}`;
+      }
+    } else {
+      message = `Welcome! Score submitted successfully! You ranked #${userRank}`;
+    }
 
     return NextResponse.json({
       success: true,
       rank: userRank,
       leaderboard: rankedLeaderboard,
-      message: `Score submitted successfully! You ranked #${userRank}`
+      message,
+      isNewHighScore,
+      previousBestScore: existingUser ? previousBestScore : null,
+      currentScore: submission.score
     });
   } catch (error) {
     console.error('Error submitting score:', error);

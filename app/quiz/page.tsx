@@ -6,6 +6,15 @@ import Link from "next/link";
 import { useLeaderboard } from "../../hooks/useLeaderboard";
 import { useQuizQuestions } from "../../hooks/useQuizQuestions";
 
+interface LeaderboardResult {
+  success?: boolean;
+  error?: string;
+  rank?: number;
+  isNewHighScore?: boolean;
+  previousBestScore?: number | null;
+  currentScore?: number;
+  message?: string;
+}
 
 export default function QuizPage() {
   const [userName, setUserName] = useState<string>("");
@@ -19,9 +28,11 @@ export default function QuizPage() {
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
   const [isCheckingAnswer, setIsCheckingAnswer] = useState(false);
   const [showEarlySubmitConfirm, setShowEarlySubmitConfirm] = useState(false);
+  const [leaderboardResult, setLeaderboardResult] = useState<LeaderboardResult | null>(null);
+  const [randomizedQuestions, setRandomizedQuestions] = useState<{id: number; question: string; options: string[]}[]>([]);
   const router = useRouter();
   const { submitScore } = useLeaderboard();
-  const { questions, isLoading, error, submitAnswers } = useQuizQuestions(5);
+  const { questions, isLoading, error, submitAnswers } = useQuizQuestions(100);
   const [life, setLife] = useState(3);
 
   useEffect(() => {
@@ -43,12 +54,34 @@ export default function QuizPage() {
     }
   }, [error, router]);
 
+  // Randomize questions when they are loaded
+  useEffect(() => {
+    if (questions.length > 0) {
+      // Create a copy of questions and shuffle them
+      const shuffled = [...questions].sort(() => Math.random() - 0.5);
+      // Take only 50 questions for the quiz
+      const selectedQuestions = shuffled.slice(0, 50);
+      setRandomizedQuestions(selectedQuestions);
+    }
+  }, [questions]);
+
+  // Randomize questions when they are loaded
+  useEffect(() => {
+    if (questions.length > 0) {
+      // Create a copy of questions and shuffle them
+      const shuffled = [...questions].sort(() => Math.random() - 0.5);
+      // Take only 10 questions for the quiz
+      const selectedQuestions = shuffled.slice(0, 10);
+      setRandomizedQuestions(selectedQuestions);
+    }
+  }, [questions]);
+
   const handleAnswerSelect = (answerIndex: number) => {
     setSelectedAnswer(answerIndex);
   };
 
   const handleNextQuestion = async () => {
-    if (selectedAnswer === null || !questions.length || isCheckingAnswer) return;
+    if (selectedAnswer === null || !randomizedQuestions.length || isCheckingAnswer) return;
 
     setIsCheckingAnswer(true);
     
@@ -60,7 +93,7 @@ export default function QuizPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          questionId: questions[currentQuestion].id,
+          questionId: randomizedQuestions[currentQuestion].id,
           answer: selectedAnswer,
         }),
       });
@@ -82,6 +115,11 @@ export default function QuizPage() {
           if (newLife <= 0) {
             setGameOver(true);
             setIsCheckingAnswer(false);
+            
+            // Auto-submit quiz when life drops to 0
+            setTimeout(() => {
+              handleFinishQuiz();
+            }, 2000); // Wait 2 seconds to show game over feedback
             return;
           }
         }
@@ -97,7 +135,7 @@ export default function QuizPage() {
           setLastAnswerCorrect(null);
           
           // Move to next question or complete quiz
-          if (currentQuestion < questions.length - 1) {
+          if (currentQuestion < randomizedQuestions.length - 1) {
             setCurrentQuestion(currentQuestion + 1);
             setSelectedAnswer(null);
           } else {
@@ -140,9 +178,14 @@ export default function QuizPage() {
       try {
         const leaderboardData = await submitScore(userName, scoreData.score);
         console.log('Leaderboard updated:', leaderboardData);
+        setLeaderboardResult(leaderboardData);
       } catch (leaderboardError) {
         console.error('Failed to update leaderboard:', leaderboardError);
-        // Continue anyway, the score was calculated successfully
+        // Store error result for display
+        setLeaderboardResult({
+          success: false,
+          error: 'Failed to save to leaderboard'
+        });
       }
     } catch (error) {
       console.error('Error submitting quiz:', error);
@@ -156,7 +199,7 @@ export default function QuizPage() {
     }
   };
 
-  if (!userName || isLoading || !questions.length) {
+  if (!userName || isLoading || !randomizedQuestions.length) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--color-iwdc-purple)]">
         <div className="text-white text-xl">
@@ -207,32 +250,87 @@ export default function QuizPage() {
   if (quizCompleted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--color-iwdc-purple)] p-8">
-        <div className="bg-white p-10 rounded-3xl shadow-xl text-center max-w-md w-full">
+        <div className="bg-white p-10 rounded-3xl shadow-xl text-center max-w-lg w-full">
           <div className="text-6xl mb-4">🎉</div>
           <h1 className="text-3xl font-bold text-[var(--color-iwdc-purple)] mb-4">
-            Quiz Completed!
+            Quiz Selesai!
           </h1>
           <p className="text-lg mb-4 text-[var(--color-iwdc-purple)]">
-            Amazing! <span className="font-semibold">{userName}</span>!
+            Luar biasa! <span className="font-semibold">{userName}</span>!
           </p>
           <div className="text-4xl font-bold text-[var(--color-iwdc-purple)] mb-6">
-            {isSubmitting ? '...' : `${score}/${questions.length}`}
+            {isSubmitting ? '...' : `${score}/${randomizedQuestions.length}`}
           </div>
           <p className="text-gray-600 mb-4">
             {isSubmitting 
-              ? 'Submitting your score...' 
-              : `Kamu menjawab ${score} dari ${questions.length} pertanyaan dengan benar!`
+              ? 'Mengirim skor kamu...' 
+              : `Kamu menjawab ${score} dari ${randomizedQuestions.length} pertanyaan dengan benar!`
             }
           </p>
-          <p className="text-green-600 font-semibold mb-8">
-            🏆 Congratulations! You completed the quiz with {life} {life === 1 ? 'life' : 'lives'} remaining!
+          <p className="text-green-600 font-semibold mb-6">
+            🏆 Selamat! Kamu menyelesaikan quiz dengan {life} {life === 1 ? 'nyawa' : 'nyawa'} tersisa!
           </p>
+          
+          {/* Leaderboard Feedback */}
+          {leaderboardResult && (
+            <div className="mb-6 p-4 rounded-lg border-2">
+              {leaderboardResult.success !== false ? (
+                <>
+                  {leaderboardResult.isNewHighScore && leaderboardResult.previousBestScore !== null ? (
+                    <div className="bg-green-50 border-green-200">
+                      <div className="text-2xl mb-2">🏆</div>
+                      <h3 className="text-xl font-bold text-green-800 mb-2">Skor Tertinggi Baru!</h3>
+                      <p className="text-green-700">
+                        Kamu meningkat dari <span className="font-bold">{leaderboardResult.previousBestScore}</span> menjadi{' '}
+                        <span className="font-bold">{leaderboardResult.currentScore}</span>!
+                      </p>
+                      <p className="text-sm text-green-600 mt-2">
+                        Peringkat Saat Ini: <span className="font-bold">#{leaderboardResult.rank}</span>
+                      </p>
+                    </div>
+                  ) : leaderboardResult.previousBestScore !== null ? (
+                    <div className="bg-blue-50 border-blue-200">
+                      <div className="text-2xl mb-2">💪</div>
+                      <h3 className="text-xl font-bold text-blue-800 mb-2">Usaha yang Bagus!</h3>
+                      <p className="text-blue-700">
+                        Skor terbaik kamu masih <span className="font-bold">{leaderboardResult.previousBestScore}</span>.
+                        Terus coba untuk mengalahkannya!
+                      </p>
+                      <p className="text-sm text-blue-600 mt-2">
+                        Peringkat Saat Ini: <span className="font-bold">#{leaderboardResult.rank}</span>
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-purple-50 border-purple-200">
+                      <div className="text-2xl mb-2">🎊</div>
+                      <h3 className="text-xl font-bold text-purple-800 mb-2">Selamat Datang!</h3>
+                      <p className="text-purple-700">
+                        Kerja bagus untuk quiz pertama kamu!
+                      </p>
+                      <p className="text-sm text-purple-600 mt-2">
+                        Peringkat Kamu: <span className="font-bold">#{leaderboardResult.rank}</span>
+                      </p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="bg-yellow-50 border-yellow-200">
+                  <div className="text-2xl mb-2">⚠️</div>
+                  <h3 className="text-xl font-bold text-yellow-800 mb-2">Skor Disimpan Lokal</h3>
+                  <p className="text-yellow-700">
+                    Quiz kamu berhasil diselesaikan, tapi ada masalah saat menyimpan ke papan peringkat.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          
           <div className="flex flex-col gap-4">
             <Link
               href="/"
               className="bg-[var(--color-iwdc-purple)] text-white p-3 rounded-lg font-bold transition-all hover:bg-opacity-90 block text-center"
             >
-              Back to Home
+              Kembali ke Beranda
             </Link>
           </div>
         </div>
@@ -240,7 +338,7 @@ export default function QuizPage() {
     );
   }
 
-  const currentQ = questions[currentQuestion];
+  const currentQ = randomizedQuestions[currentQuestion];
 
   return (
 		<div className="min-h-screen bg-[var(--color-iwdc-purple)] p-8">
@@ -274,7 +372,7 @@ export default function QuizPage() {
 							</div>
 						</div>
 						<div className="text-sm text-[var(--color-iwdc-purple)] bg-white bg-opacity-20 px-3 py-1 rounded-full">
-							📊 Question {currentQuestion + 1} of {questions.length} • Score:{" "}
+							📊 Question {currentQuestion + 1} of {randomizedQuestions.length} • Score:{" "}
 							{score}
 						</div>
 					</div>
@@ -287,7 +385,7 @@ export default function QuizPage() {
 							life === 3 ? "life-full" : life === 2 ? "life-medium" : "life-low"
 						}`}
 						style={{
-							width: `${((currentQuestion + 1) / questions.length) * 100}%`,
+							width: `${((currentQuestion + 1) / randomizedQuestions.length) * 100}%`,
 						}}
 					></div>
 				</div>
@@ -304,7 +402,7 @@ export default function QuizPage() {
 								<p className="text-gray-700 mb-6">
 									Are you sure you want to submit the quiz now? You&apos;ve answered{" "}
 									<span className="font-bold">{currentQuestion + 1}</span> out of{" "}
-									<span className="font-bold">{questions.length}</span> questions.
+									<span className="font-bold">{randomizedQuestions.length}</span> questions.
 								</p>
 								<p className="text-gray-600 mb-8">
 									Your current score: <span className="font-bold text-[var(--color-iwdc-purple)]">{score}</span>
@@ -410,13 +508,13 @@ export default function QuizPage() {
 								? "Checking..."
 								: showAnswerFeedback
 								? "Please wait..."
-								: currentQuestion === questions.length - 1
+								: currentQuestion === randomizedQuestions.length - 1
 								? "Finish Quiz"
 								: "Submit Answer"}
 						</button>
 						
 						{/* Early Submit Button - only show if not on last question */}
-						{currentQuestion < questions.length - 1 && (
+						{currentQuestion < randomizedQuestions.length - 1 && (
 							<button
 								onClick={handleEarlySubmit}
 								disabled={isCheckingAnswer || showAnswerFeedback || isSubmitting}

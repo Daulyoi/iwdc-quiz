@@ -24,7 +24,7 @@ export default function Leaderboard({ entries, refreshTrigger }: LeaderboardProp
 
   const displayData = entries || leaderboardData;
   return (
-    <div className="lg:col-span-2 bg-[var(--color-iwdc-purple)] p-10 text-[var(--color-iwdc-white)] flex flex-col gap-10 justify-start items-center">
+    <div className="lg:col-span-2 bg-[var(--color-iwdc-purple)] text-[var(--color-iwdc-white)] flex flex-col gap-10 justify-start items-center">
       <div className="w-full flex flex-col gap-6 justify-center items-center border-2 border-[var(--color-iwdc-white)] p-6 rounded-2xl backdrop-blur-sm bg-opacity-80">
         <h2 className="text-2xl font-bold">Leaderboard</h2>
         <table className="w-full border-collapse">

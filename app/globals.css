@@ -3,9 +3,14 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@theme inline {
+  
+  /* IWDC Brand Colors */
+  --color-iwdc-purple: #814c7a;
+  --color-iwdc-purple-darker: #6e3e65;
+  --color-iwdc-purple-lighter: #9b6a8f; ;
+  --color-iwdc-white: #e0e4ea;
+  
+  /* Theme colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);

@@ -70,8 +70,8 @@ export default function QuizPage() {
     if (questions.length > 0) {
       // Create a copy of questions and shuffle them
       const shuffled = [...questions].sort(() => Math.random() - 0.5);
-      // Take only 10 questions for the quiz
-      const selectedQuestions = shuffled.slice(0, 10);
+      // Take only 50 questions for the quiz
+      const selectedQuestions = shuffled.slice(0, 50);
       setRandomizedQuestions(selectedQuestions);
     }
   }, [questions]);

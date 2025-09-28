@@ -32,7 +32,7 @@ export default function QuizPage() {
   const [randomizedQuestions, setRandomizedQuestions] = useState<{id: number; question: string; options: string[]}[]>([]);
   const router = useRouter();
   const { submitScore } = useLeaderboard();
-  const { questions, isLoading, error, submitAnswers } = useQuizQuestions(100);
+  const { questions, isLoading, error } = useQuizQuestions(100);
   const [life, setLife] = useState(3);
 
   useEffect(() => {
@@ -85,6 +85,11 @@ export default function QuizPage() {
 
     setIsCheckingAnswer(true);
     
+    // Store the answer immediately before checking
+    const updatedAnswers = [...(localStorage.getItem('quizAnswers') ? JSON.parse(localStorage.getItem('quizAnswers')!) : [])];
+    updatedAnswers[currentQuestion] = selectedAnswer;
+    localStorage.setItem('quizAnswers', JSON.stringify(updatedAnswers));
+    
     try {
       // Check the answer using the new API endpoint
       const response = await fetch('/api/check-answer', {
@@ -124,11 +129,6 @@ export default function QuizPage() {
           }
         }
 
-        // Store the answer for final submission
-        const updatedAnswers = [...(localStorage.getItem('quizAnswers') ? JSON.parse(localStorage.getItem('quizAnswers')!) : [])];
-        updatedAnswers[currentQuestion] = selectedAnswer;
-        localStorage.setItem('quizAnswers', JSON.stringify(updatedAnswers));
-
         // Auto-advance after showing feedback
         setTimeout(() => {
           setShowAnswerFeedback(false);
@@ -142,6 +142,7 @@ export default function QuizPage() {
             handleFinishQuiz();
           }
           setIsCheckingAnswer(false);
+          console.log("Current Score:", score);
         }, 2000); // Show feedback for 2 seconds
       }
     } catch (error) {
@@ -167,16 +168,12 @@ export default function QuizPage() {
     setIsSubmitting(true);
     
     try {
-      // Get stored answers
-      const answers = JSON.parse(localStorage.getItem('quizAnswers') || '[]');
-      
-      // Submit answers to get score using the hook
-      const scoreData = await submitAnswers(answers);
-      setScore(scoreData.score);
+      // Use the real-time score instead of recalculating from answers
+      // This ensures consistency and fixes the first/last question issue
       
       // Submit to leaderboard using the hook
       try {
-        const leaderboardData = await submitScore(userName, scoreData.score);
+        const leaderboardData = await submitScore(userName, score);
         console.log('Leaderboard updated:', leaderboardData);
         setLeaderboardResult(leaderboardData);
       } catch (leaderboardError) {

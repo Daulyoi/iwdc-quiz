@@ -23,7 +23,7 @@ export default function Home() {
   };
 
   return (
-      <div className="w-full h-full min-h-screen lg:grid lg:grid-cols-6 flex flex-col gap-10 lg:pl-32 p-12 justify-center items-center bg-[var(--color-iwdc-purple)]">
+      <div className="w-full h-full min-h-screen lg:grid lg:grid-cols-6 flex flex-col gap-10 lg:pl-32 p-12 items-start bg-[var(--color-iwdc-purple)]">
         <QuizStartForm
           name={name}
           onNameChange={setName}
